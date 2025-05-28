@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin de Paraguay - Tienda Premium</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <img src="https://kot4fsflnhzjbbhgpju3yqxgfjb7a3nccig5b3huzrttwf5nbxpa.arweave.net/U6fCyKtp8pCE5nppvELmKkPwbaISDdDs9MxnOxetDd4" alt="BTCPY1 Logo" id="logo">
+            <h1>Bitcoin de Paraguay</h1>
+        </div>
+        <nav id="category-nav">
+            <!-- Las categorías se cargarán aquí por JavaScript -->
+        </nav>
+    </header>
+
+    <main>
+        <h2 id="current-category-title">Productos Destacados</h2>
+        <div id="product-grid" class="product-grid">
+            <!-- Los productos se cargarán aquí por JavaScript -->
+        </div>
+        <div id="loading-indicator" style="display: none;">Cargando productos...</div>
+        <div id="error-message" style="display: none;"></div>
+    </main>
+
+    <!-- Modal de Consulta -->
+    <div id="consultation-modal" class="modal consultation-modal-style">
+        <div class="modal-content">
+            <span class="close-modal-button">×</span>
+            <h2>Consultar Producto</h2>
+            <p id="consultation-product-intro">Para realizar una consulta sobre el producto <strong id="consultation-product-name-modal"></strong> y la posibilidad de adquirirlo con BTCPY1, por favor contáctanos:</p>
+            <div id="consultation-message-container" style="margin-bottom: 20px; font-size: 0.9em; background-color: #f9f9f9; padding: 10px; border-radius: 5px; text-align: left;">
+                <p><strong>Mensaje sugerido (copia y pega o menciona los detalles):</strong></p>
+                <textarea id="copy-paste-message-text" rows="4" style="width: 100%; box-sizing: border-box; margin-top: 5px; padding: 8px; border-radius: 4px; border: 1px solid #ddd;" readonly></textarea>
+            </div>
+            <div class="modal-contact-buttons">
+                <a id="signal-contact-link" href="#" target="_blank" class="contact-button signal">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Signal-Logo.svg/2048px-Signal-Logo.svg.png" alt="Signal Logo" class="contact-icon"> Contactar por Signal
+                </a>
+                <a id="simplex-contact-link" href="#" target="_blank" class="contact-button simplex">
+                    <img src="https://upload.wikimedia.org/wikipedia/en/8/81/SimpleX_Logo.png" alt="Simplex Chat Logo" class="contact-icon"> Contactar por Simplex Chat
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Detalles del Producto -->
+    <div id="product-details-modal" class="modal product-details-modal-style">
+        <div class="modal-content">
+            <span class="close-modal-button">×</span>
+            <div id="modal-product-image-container">
+                <img id="modal-product-image" src="" alt="Producto">
+            </div>
+            <h2 id="modal-product-title">Título del Producto</h2>
+            <div id="modal-product-rating" class="star-rating">
+                <!-- Estrellas se insertarán aquí por JS -->
+            </div>
+            <p class="modal-product-price-usd">USD: <span id="modal-product-price-val-usd"></span></p>
+            <p class="modal-product-price-btc">BTCPY1: <span id="modal-product-price-val-btc"></span></p>
+            <div id="modal-product-specs-container">
+                <h3>Especificaciones Clave:</h3>
+                <ul id="modal-product-specs-list">
+                    <!-- Especificaciones se insertarán aquí por JS -->
+                </ul>
+            </div>
+            <div id="modal-product-description-container">
+                <h3>Descripción Adicional:</h3>
+                <p id="modal-product-description">
+                    Información detallada del producto no disponible en esta vista resumida.
+                    Por favor, use el botón "Consultar" para más detalles o visite el enlace original de eBay.
+                </p>
+            </div>
+            <a id="modal-ebay-link" href="#" target="_blank" class="ebay-link-button">Ver en eBay</a>
+            <button id="modal-consult-button" class="consult-button-from-details">Consultar este Producto</button>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2024 Bitcoin de Paraguay. Productos de EE. UU. Todos los derechos reservados.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
