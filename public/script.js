@@ -1,6 +1,6 @@
-// --- script.js ---
+// --- public/script.js ---
 document.addEventListener('DOMContentLoaded', () => {
-    const API_BASE_URL = ''; 
+    const API_BASE_URL = ''; // Rutas relativas para API en el mismo dominio
     const productGrid = document.getElementById('product-grid');
     const categoryNav = document.getElementById('category-nav');
     const currentCategoryTitle = document.getElementById('current-category-title');
@@ -27,9 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let ebayTokenInMemory = null;
     let currentProductsData = [];
 
-    const PRODUCT_CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
-    const TOKEN_CACHE_KEY = 'ebay_api_token_data_v3'; // Incrementa v si cambias estructura de tokenData
-    const TOKEN_CACHE_DURATION_MS = 115 * 60 * 1000; 
+    const PRODUCT_CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 horas
+    const TOKEN_CACHE_KEY = 'ebay_api_token_data_v3'; // Incrementa v si cambias estructura de tokenData o lógica
+    const TOKEN_CACHE_DURATION_MS = 115 * 60 * 1000; // 115 minutos
 
     const signalBaseUrl = "https://signal.me/#eu/CF1rj5AIaTA5K3wXO-BE2MTR4NTSwNRxNG0y0eb58RW7cYpZSJdLdoWQiR9wgqEY";
     const simplexFullUrl = "https://simplex.chat/invitation#/?v=2-7&smp=smp%3A%2F%2F0YuTwO05YJWS8rkjn9eLJDjQhFKvIYd8d4xG8X1blIU%3D%40smp8.simplex.im%2FvRrCr5pFnLpkU6W88_4MXi2-ONqihXPg%23%2F%3Fv%3D1-4%26dh%3DMCowBQYDK2VuAyEAOI2_lERj4RuKhypEyNWdfJnxaWtlFUeFUktxR2hlY24%253D%26q%3Dm%26k%3Ds%26srv%3Dbeccx4yfxxbvyhqypaavemqurytl6hozr47wfc7uuecacjqdvwpw2xid.onion&e2e=v%3D2-3%26x3dh%3DMEIwBQYDK2VvAzkAD5TfPW3hXr9pSw9omGm6GY-NnhA4UiflAY-zBWZ3EOCsnvrz24PIAatHMZ8BeRaDVUgZAOE0Ni4%3D%2CMEIwBQYDK2VvAzkAlbmQJKqF8oYipNeRq3CA6igbMUVwVP3V27qk2f65ImQe_b2Rc7vbE5cBs80PQD8bac1Il3GNXeg%3D";
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/get-ebay-token`);
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({error: "Error desconocido al obtener token"}));
+                const errorData = await response.json().catch(() => ({error: "Error desconocido al obtener token del backend"}));
                 throw new Error(errorData.error || `GET token error: ${response.status}`);
             }
             const tokenData = await response.json(); 
@@ -114,15 +114,15 @@ document.addEventListener('DOMContentLoaded', () => {
             ebayTokenInMemory = tokenData.access_token;
 
             const tokenValidDurationMs = tokenData.expires_in 
-                ? (tokenData.expires_in * 1000 * 0.95) 
+                ? (tokenData.expires_in * 1000 * 0.95) // 95% de su vida útil, eBay devuelve expires_in en segundos
                 : TOKEN_CACHE_DURATION_MS; 
             
-            saveToCache(TOKEN_CACHE_KEY, tokenData, tokenValidDurationMs);
+            saveToCache(TOKEN_CACHE_KEY, tokenData, tokenValidDurationMs); // Guardar el objeto tokenData completo
             console.log("[Token] Nuevo token obtenido y cacheado.");
             return ebayTokenInMemory;
         } catch (error) {
             console.error('[Frontend] Error crítico al obtener/procesar token de eBay:', error);
-            showError('Error crítico al obtener token de eBay. Intente recargar la página.');
+            showError(`Error crítico al obtener token de eBay: ${error.message}. Intente recargar la página.`);
             ebayTokenInMemory = null;
             return null;
         }
@@ -132,18 +132,20 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoading(true); showError(null);
         currentCategoryTitle.textContent = categoryName || 'Resultados de Búsqueda';
         const CACHE_KEY_PRODUCTS = `ebay_products_${encodeURIComponent(query)}_limit${limit}_offset${offset}`;
-        const cachedProducts = getFromCache(CACHE_KEY_PRODUCTS);
-
-        if (cachedProducts) {
-            currentProductsData = cachedProducts; displayProducts(currentProductsData, categoryName, false);
-            showLoading(false); return;
-        }
+        
+        // No usar caché de productos si se fuerza la actualización o para simplificar depuración inicial
+        // const cachedProducts = getFromCache(CACHE_KEY_PRODUCTS);
+        // if (cachedProducts) {
+        //    currentProductsData = cachedProducts; displayProducts(currentProductsData, categoryName, false);
+        //    showLoading(false); return;
+        // }
 
         const token = await fetchEbayToken(); 
         if (!token) {
             console.warn("[Frontend] No se pudo obtener un token válido para buscar productos.");
+            // El error ya se mostró en fetchEbayToken
             showLoading(false);
-            displayProducts([], categoryName, false);
+            displayProducts([], categoryName, false); // Mostrar que no hay productos
             return;
         }
 
@@ -151,14 +153,14 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(searchUrl, { headers: { 'X-Ebay-App-Token': token } });
             
-            if (response.status === 401) {
+            if (response.status === 401) { // Unauthorized - Específicamente para token inválido
                 console.warn("[Frontend] Error 401: Token inválido o expirado. Refrescando token y reintentando...");
-                const newToken = await fetchEbayToken(true); 
+                const newToken = await fetchEbayToken(true); // true para forzar refresco
                 if (newToken) {
                     const retryResponse = await fetch(searchUrl, { headers: { 'X-Ebay-App-Token': newToken } });
                     if (!retryResponse.ok) {
                         let eMsg = `Error servidor (${retryResponse.status}) tras reintento.`;
-                        try{const eD=await retryResponse.json();eMsg=eD.error||eD.message||(eD.details?.message)||eMsg;}catch(e){}
+                        try{ const eD=await retryResponse.json(); eMsg=eD.error||eD.message||(eD.details?.errors?.[0]?.message)||eMsg; }catch(e){}
                         throw new Error(eMsg);
                     }
                     const data = await retryResponse.json();
@@ -166,11 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     throw new Error("No se pudo obtener un token nuevo tras fallo de autorización.");
                 }
-            } else if (!response.ok) {
+            } else if (!response.ok) { // Otros errores HTTP
                 let eMsg = `Error servidor (${response.status})`;
-                try{const eD=await response.json();eMsg=eD.error||eD.message||(eD.details?.message)||eMsg;}catch(e){}
+                try{ const eD=await response.json(); eMsg=eD.error||eD.message||(eD.details?.errors?.[0]?.message)||eMsg; }catch(e){}
                 throw new Error(eMsg);
-            } else {
+            } else { // Respuesta OK (200)
                 const data = await response.json();
                 processProductData(data, categoryName, CACHE_KEY_PRODUCTS);
             }
@@ -181,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally { showLoading(false); }
     }
 
-    function processProductData(data, categoryName, cacheKey) {
+   function processProductData(data, categoryName, cacheKey) {
         let itemsArray = [];
         if (data) {
             if(Array.isArray(data.itemSummaries)) itemsArray=data.itemSummaries;
@@ -192,9 +194,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         currentProductsData = itemsArray.filter(item => item.price && parseFloat(item.price.value) > 0);
 
-        if (currentProductsData.length > 0) saveToCache(cacheKey, currentProductsData, PRODUCT_CACHE_DURATION_MS);
-        displayProducts(currentProductsData, categoryName, true);
-    }
+        if (currentProductsData.length > 0) {
+            saveToCache(cacheKey, currentProductsData, PRODUCT_CACHE_DURATION_MS);
+        }
+        displayProducts(currentProductsData, categoryName, true); // Randomize on new fetch
+   }
 
     function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
@@ -205,23 +209,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayProducts(itemsToDisplay, categoryNameForMsg, randomizeOrder = false) {
-        productGrid.innerHTML = '';
+        productGrid.innerHTML = ''; // Limpiar grid
         if (!Array.isArray(itemsToDisplay)) {
+            console.error("itemsToDisplay no es un array:", itemsToDisplay);
             itemsToDisplay = [];
         }
+
         let finalItems = [...itemsToDisplay];
         if (randomizeOrder && finalItems.length > 0) {
             finalItems = shuffleArray(finalItems);
         }
+
         if (finalItems.length === 0) {
             productGrid.innerHTML = `<p style="text-align:center; grid-column: 1 / -1; font-size: 1.1em; padding: 20px;">No se encontraron productos para "${categoryNameForMsg}". Pruebe otra categoría o revise más tarde.</p>`;
             return;
         }
-        finalItems.forEach((item, index) => {
+
+        finalItems.forEach((item, loopIndex) => {
             const card = document.createElement('div'); card.className = 'product-card';
+            
+            // Encontrar el índice original del item en currentProductsData (que no está aleatorizado)
             const originalItem = currentProductsData.find(oi => oi.itemId === item.itemId);
             const originalIndex = originalItem ? currentProductsData.indexOf(originalItem) : -1;
-            card.dataset.index = (originalIndex !== -1) ? originalIndex : index;
+            // Usar el índice original para referenciar el objeto correcto en currentProductsData al hacer clic
+            card.dataset.index = (originalIndex !== -1) ? originalIndex : loopIndex;
+
 
             let bestImageUrl = 'https://via.placeholder.com/300x250.png?text=No+Image';
             let sourceImageUrl = null; 
@@ -237,19 +249,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const title = item.title || 'Producto Sin Título';
             const price = item.price?.value ? parseFloat(item.price.value) : 0;
             const currency = item.price?.currency || 'USD';
-            const itemId = item.itemId || `temp_id_${Date.now()}_${index}`;
+            const itemId = item.itemId || `temp_id_${Date.now()}_${loopIndex}`; // Usar loopIndex para ID temporal si es necesario
             
-            const rating = Math.floor(Math.random()*2)+3.5; 
+            const rating = (Math.random() * 1.5) + 3.5; // Rating aleatorio entre 3.5 y 5.0
             let starsHTML='';
             for(let i=1;i<=5;i++){
-                if (i <= rating) starsHTML+=`<i class="fas fa-star"></i>`;
-                else if (i - 0.5 <= rating) starsHTML+=`<i class="fas fa-star-half-alt"></i>`;
-                else starsHTML+=`<i class="far fa-star"></i>`;
+                if (i <= rating) starsHTML+= `<i class="fas fa-star"></i>`; // Usar acento grave
+                else if (i - 0.5 <= rating) starsHTML+= `<i class="fas fa-star-half-alt"></i>`; // Usar acento grave
+                else starsHTML+= `<i class="far fa-star"></i>`; // Usar acento grave
             }
-
-            card.innerHTML = \`
-                <div class="product-card-image-wrapper"><img src="\${bestImageUrl}" alt="\${title.substring(0,50)}..." loading="lazy" onerror="this.onerror=null;this.src='\${sourceImageUrl || 'https://via.placeholder.com/300x250.png?text=Error+Img'}';"></div>
-                <div class="product-info"><h3>\${title}</h3><div class="star-rating">\${starsHTML}</div><p class="product-price">\${price.toFixed(2)} <span class="currency">\${currency}</span></p><p class="product-price-btc">\${price.toFixed(2)} <span class="currency">BTCPY1</span></p><button class="consult-button" data-item-id="\${itemId}" data-item-title="\${title.replace(/"/g, '"')}">Consultar</button></div>\`;
+            
+            // CORRECCIÓN: Usar acentos graves (`) para la plantilla de cadena
+            card.innerHTML = `
+                <div class="product-card-image-wrapper"><img src="${bestImageUrl}" alt="${title.substring(0,50)}..." loading="lazy" onerror="this.onerror=null;this.src='${sourceImageUrl || 'https://via.placeholder.com/300x250.png?text=Error+Img'}';"></div>
+                <div class="product-info"><h3>${title}</h3><div class="star-rating">${starsHTML}</div><p class="product-price">${price.toFixed(2)} <span class="currency">${currency}</span></p><p class="product-price-btc">${price.toFixed(2)} <span class="currency">BTCPY1</span></p><button class="consult-button" data-item-id="${itemId}" data-item-title="${title.replace(/"/g, '"')}">Consultar</button></div>
+            `;
             productGrid.appendChild(card);
             
             card.addEventListener('click',(e)=>{
@@ -258,8 +272,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     openConsultationModal(e.target.dataset.itemTitle, e.target.dataset.itemId);
                 } else {
                     const pIdx = parseInt(e.currentTarget.dataset.index, 10);
-                    const pData = currentProductsData[pIdx];
-                    if(pData) openProductDetailsModal(pData);
+                    // Asegurarse que pIdx es un número válido y está dentro de los límites de currentProductsData
+                    if (!isNaN(pIdx) && pIdx >= 0 && pIdx < currentProductsData.length) {
+                        const pData = currentProductsData[pIdx];
+                        if(pData) openProductDetailsModal(pData);
+                    } else {
+                        console.error("Índice de producto inválido o fuera de rango:", pIdx, "currentProductsData longitud:", currentProductsData.length);
+                    }
                 }
             });
         });
@@ -287,15 +306,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openConsultationModal(productTitle,productItemId){
         consultationProductNameModal.textContent=productTitle;
-        const msg=\`Hola, estoy interesado/a en el producto: "\${productTitle}" (ID eBay: \${productItemId}). Me gustaría saber más sobre cómo adquirirlo con BTCPY1.\`;
+        // CORRECCIÓN: Usar acentos graves (`) para la plantilla de cadena
+        const msg=`Hola, estoy interesado/a en el producto: "${productTitle}" (ID eBay: ${productItemId}). Me gustaría saber más sobre cómo adquirirlo con BTCPY1.`;
         copyPasteMessageText.value=msg;
-        signalContactLink.href=\`\${signalBaseUrl}?message=\${encodeURIComponent(msg)}\`;
+        signalContactLink.href=`${signalBaseUrl}?message=${encodeURIComponent(msg)}`;
         simplexContactLink.href=simplexFullUrl; 
         consultationModal.classList.add('active');
         document.body.style.overflow='hidden';
     }
 
     function openProductDetailsModal(productData){
+        if (!productData) {
+            console.error("openProductDetailsModal llamado sin productData");
+            return;
+        }
         let bestModalImgUrl='https://via.placeholder.com/400x400.png?text=No+Image';
         let srcModalImgUrl=null;
         if(productData.image?.imageUrl)srcModalImgUrl=productData.image.imageUrl;
@@ -304,20 +328,26 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if(srcModalImgUrl){
             bestModalImgUrl=srcModalImgUrl;
-            if(bestModalImgUrl.includes('s-l'))bestModalImgUrl=bestModalImgUrl.replace(/s-l\\d+/ig,'s-l1600');
+            if(bestModalImgUrl.includes('s-l'))bestModalImgUrl=bestModalImgUrl.replace(/s-l\d+/ig,'s-l1600');
         }
         
         modalProductImage.src=bestModalImgUrl;
         modalProductImage.onerror=function(){this.onerror=null;this.src=srcModalImgUrl||'https://via.placeholder.com/400x400.png?text=Error+Img';};
         modalProductTitle.textContent=productData.title||'Producto Sin Título';
         
-        const rating = Math.floor(Math.random()*2)+3.5;
-        let starsHTML=''; for(let i=1;i<=5;i++){if(i<=rating)starsHTML+= \`<i class="fas fa-star"></i>\`;else if(i-0.5<=rating)starsHTML+= \`<i class="fas fa-star-half-alt"></i>\`;else starsHTML+= \`<i class="far fa-star"></i>\`;}
+        const rating = (Math.random() * 1.5) + 3.5;
+        let starsHTML=''; 
+        for(let i=1;i<=5;i++){
+            if(i<=rating)starsHTML+= `<i class="fas fa-star"></i>`; // Usar acento grave
+            else if(i-0.5<=rating)starsHTML+= `<i class="fas fa-star-half-alt"></i>`; // Usar acento grave
+            else starsHTML+= `<i class="far fa-star"></i>`; // Usar acento grave
+        }
         modalProductRating.innerHTML=starsHTML;
 
         const price=productData.price?.value?parseFloat(productData.price.value):0;
-        modalProductPriceUSD.textContent=\`\${price.toFixed(2)} \${productData.price?.currency||'USD'}\`;
-        modalProductPriceBTC.textContent=\`\${price.toFixed(2)} BTCPY1\`;
+        // CORRECCIÓN: Usar acentos graves (`) para la plantilla de cadena
+        modalProductPriceUSD.textContent=`${price.toFixed(2)} ${productData.price?.currency||'USD'}`;
+        modalProductPriceBTC.textContent=`${price.toFixed(2)} BTCPY1`;
         
         modalProductSpecsList.innerHTML='';
         const specs=productData.localizedAspects||[];
@@ -326,14 +356,17 @@ document.addEventListener('DOMContentLoaded', () => {
             specs.forEach(spec=>{
                 if(specsCount < 8 && spec.name && spec.value){ 
                     const li=document.createElement('li');
-                    li.innerHTML=\`<strong>\${spec.name}:</strong> \${spec.value}\`;
+                    // CORRECCIÓN: Usar acentos graves (`) para la plantilla de cadena
+                    li.innerHTML=`<strong>${spec.name}:</strong> ${spec.value}`;
                     modalProductSpecsList.appendChild(li);
                     specsCount++;
                 }
             });
         }
         if(productData.condition && !specs.some(s=>s.name?.toLowerCase()==='condition')){
-            const li=document.createElement('li');li.innerHTML=\`<strong>Condición:</strong> \${productData.condition}\`;
+            const li=document.createElement('li');
+            // CORRECCIÓN: Usar acentos graves (`) para la plantilla de cadena
+            li.innerHTML=`<strong>Condición:</strong> ${productData.condition}`;
             modalProductSpecsList.appendChild(li);specsCount++;
         }
         if(specsCount===0)modalProductSpecsList.innerHTML='<li>No hay especificaciones detalladas disponibles.</li>';
@@ -344,7 +377,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         modalConsultButton.onclick=()=>{
             closeModal(productDetailsModal);
-            openConsultationModal(productData.title, productData.itemId || \`temp_id_\${Date.now()}\`);
+            // CORRECCIÓN: Usar acentos graves (`) para la plantilla de cadena
+            openConsultationModal(productData.title, productData.itemId || `temp_id_${Date.now()}`);
         };
         productDetailsModal.classList.add('active');
         document.body.style.overflow='hidden';
@@ -363,5 +397,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('click',(e)=>{if(e.target.classList.contains('modal'))closeModal(e.target);});
     window.addEventListener('keydown',(e)=>{if(e.key==='Escape')document.querySelectorAll('.modal.active').forEach(m => closeModal(m));});
 
-    populateCategories();
+    // Iniciar la carga de categorías y productos
+    try {
+        populateCategories();
+    } catch(err) {
+        console.error("Error al iniciar populateCategories:", err);
+        showError("Error al inicializar la página: " + err.message);
+    }
 });
